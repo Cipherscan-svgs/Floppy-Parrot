@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floppy Parrot</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #70c5ce; /* Sky blue */
+            border: 4px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let frames = 0;
+        let gameOver = false;
+        let score = 0;
+
+        // The Parrot Object
+        const parrot = {
+            x: 50,
+            y: 150,
+            width: 34,
+            height: 34,
+            gravity: 0.25,
+            jump: 5.5,
+            velocity: 0,
+
+            draw: function() {
+                ctx.font = "34px Arial";
+                // Adjust Y positioning because text baseline is at the bottom
+                ctx.fillText("🦜", this.x, this.y + this.height - 4); 
+            },
+
+            flap: function() {
+                this.velocity = -this.jump;
+            },
+
+            update: function() {
+                this.velocity += this.gravity;
+                this.y += this.velocity;
+
+                // Floor collision
+                if (this.y + this.height >= canvas.height) {
+                    this.y = canvas.height - this.height;
+                    gameOver = true;
+                }
+                // Ceiling collision
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.velocity = 0;
+                }
+            }
+        };
+
+        // The Pipes Object
+        const pipes = {
+            position: [],
+            width: 50,
+            gap: 130, // Space between top and bottom pipe
+            dx: 2.5,  // Speed of pipes moving left
+
+            draw: function() {
+                for (let i = 0; i < this.position.length; i++) {
+                    let p = this.position[i];
+                    let topY = p.y;
+                    let bottomY = p.y + this.gap;
+
+                    // Draw Top Pipe
+                    ctx.fillStyle = "#73BF2E";
+                    ctx.fillRect(p.x, 0, this.width, topY);
+                    ctx.strokeRect(p.x, 0, this.width, topY);
+
+                    // Draw Bottom Pipe
+                    ctx.fillRect(p.x, bottomY, this.width, canvas.height - bottomY);
+                    ctx.strokeRect(p.x, bottomY, this.width, canvas.height - bottomY);
+                }
+            },
+
+            update: function() {
+                // Add new pipes every 100 frames
+                if (frames % 100 === 0) {
+                    this.position.push({
+                        x: canvas.width,
+                        y: Math.random() * (canvas.height - this.gap - 60) + 30
+                    });
+                }
+
+                for (let i = 0; i < this.position.length; i++) {
+                    let p = this.position[i];
+                    let bottomPipeYPos = p.y + this.gap;
+
+                    // Collision Detection
+                    if (parrot.x + parrot.width > p.x && parrot.x < p.x + this.width &&
+                       (parrot.y < p.y || parrot.y + parrot.height > bottomPipeYPos)) {
+                        gameOver = true;
+                    }
+
+                    p.x -= this.dx;
+
+                    // Remove pipes that move off screen & add score
+                    if (p.x + this.width <= 0) {
+                        this.position.shift();
+                        score++;
+                        i--;
+                    }
+                }
+            }
+        };
+
+        // Draw everything
+        function draw() {
+            // Clear canvas / draw sky
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            pipes.draw();
+            parrot.draw();
+
+            // Draw Score
+            ctx.fillStyle = "#FFF";
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            ctx.font = "35px Impact";
+            ctx.fillText(score, canvas.width / 2 - 10, 50);
+            ctx.strokeText(score, canvas.width / 2 - 10, 50);
+
+            // Draw Game Over Screen
+            if (gameOver) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = "white";
+                ctx.font = "30px Impact";
+                ctx.fillText("GAME OVER", canvas.width / 2 - 65, canvas.height / 2 - 10);
+                
+                ctx.font = "16px Arial";
+                ctx.fillText("Click or press Space to restart", canvas.width / 2 - 100, canvas.height / 2 + 30);
+            }
+        }
+
+        // Update logic
+        function update() {
+            parrot.update();
+            pipes.update();
+        }
+
+        // Game Loop
+        function loop() {
+            if (!gameOver) {
+                update();
+            }
+            draw();
+            frames++;
+            
+            if (!gameOver) {
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // Controls
+        function flapOrRestart() {
+            if (gameOver) {
+                // Reset Game State
+                parrot.y = 150;
+                parrot.velocity = 0;
+                pipes.position = [];
+                score = 0;
+                frames = 0;
+                gameOver = false;
+                loop();
+            } else {
+                parrot.flap();
+            }
+        }
+
+        // Mouse/Touch Control
+        canvas.addEventListener("mousedown", flapOrRestart);
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            flapOrRestart();
+        }, {passive: false});
+
+        // Spacebar Control
+        document.addEventListener("keydown", function(e) {
+            if (e.code === "Space") {
+                flapOrRestart();
+            }
+        });
+
+        // Start Game
+        loop();
+    </script>
+</body>
+</html>
